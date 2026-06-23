@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BAFS 大富翁操題系統 (2024 試卷一)</title>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', Arial, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .game-container {
+            display: flex;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        /* 大富翁棋盤樣式 (簡化外圍環狀) */
+        .board {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            grid-template-rows: repeat(6, 1fr);
+            width: 600px;
+            height: 600px;
+            background-color: #fff;
+            border: 5px solid #333;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .cell {
+            border: 1px solid #ccc;
+            padding: 5px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            font-weight: bold;
+            text-align: center;
+            background-color: #fafafa;
+            position: relative;
+        }
+
+        /* 顏色分類區 */
+        .cell-header {
+            width: 100%;
+            height: 15px;
+            margin-bottom: 2px;
+        }
+        .bg-green { background-color: #2ecc71; }
+        .bg-yellow { background-color: #f1c40f; }
+        .bg-red { background-color: #e74c3c; }
+        .bg-special { background-color: #e67e22; color: white; }
+
+        /* 特殊格子位置 */
+        .cell-0 { grid-column: 6; grid-row: 6; background-color: #ff7675; } /* 起點 */
+        .cell-1 { grid-column: 5; grid-row: 6; }
+        .cell-2 { grid-column: 4; grid-row: 6; }
+        .cell-3 { grid-column: 3; grid-row: 6; }
+        .cell-4 { grid-column: 2; grid-row: 6; }
+        .cell-5 { grid-column: 1; grid-row: 6; background-color: #74b9ff; } /* 監獄 */
+        .cell-6 { grid-column: 1; grid-row: 5; }
+        .cell-7 { grid-column: 1; grid-row: 4; }
+        .cell-8 { grid-column: 1; grid-row: 3; }
+        .cell-9 { grid-column: 1; grid-row: 2; }
+        .cell-10 { grid-column: 1; grid-row: 1; background-color: #ffeaa7; } /* 機會 */
+        .cell-11 { grid-column: 2; grid-row: 1; }
+        .cell-12 { grid-column: 3; grid-row: 1; }
+        .cell-13 { grid-column: 4; grid-row: 1; }
+        .cell-14 { grid-column: 5; grid-row: 1; }
+        .cell-15 { grid-column: 6; grid-row: 1; background-color: #a29bfe; } /* 命運 */
+        .cell-16 { grid-column: 6; grid-row: 2; }
+        .cell-17 { grid-column: 6; grid-row: 3; }
+        .cell-18 { grid-column: 6; grid-row: 4; }
+        .cell-19 { grid-column: 6; grid-row: 5; }
+
+        /* 棋子樣式 */
+        .player-token {
+            width: 20px;
+            height: 20px;
+            background-color: #9b59b6;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+
+        /* 控制台 */
+        .controls {
+            flex: 1;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn:hover { background-color: #2980b9; }
+
+        /* 彈出視窗 (題目/答案) */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 600px;
+            width: 90%;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.3);
+        }
+
+        .options-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .option-btn {
+            background-color: #f8f9fa;
+            border: 2px solid #dee2e6;
+            padding: 10px 15px;
+            border-radius: 5px;
+            text-align: left;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .option-btn:hover { background-color: #e9ecef; }
+
+        .explanation-box {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #e8f4fd;
+            border-left: 5px solid #3498db;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🎲 BAFS 大富翁操題系統</h1>
+    <p>基本傳統玩法：擲骰子前進，停下來時必須回答 BAFS 題目才能觸發買地/免罰！</p>
+
+    <div class="game-container">
+        <!-- 棋盤 -->
+        <div class="board" id="board">
+            <!-- 棋子 -->
+            <div class="player-token" id="playerToken"></div>
+        </div>
+
+        <!-- 右側控制台 -->
+        <div class="controls">
+            <h2>📊 遊戲狀態</h2>
+            <div><strong>目前位置：</strong> <span id="currentLocName">起點 (GO)</span></div>
+            <div><strong>資產總額：</strong> $<span id="playerMoney">15000</span></div>
+            <hr>
+            <button class="btn" id="rollBtn" onclick="rollDice()">🎲 擲骰子前進</button>
+            <div id="diceResult" style="font-size: 18px; font-weight: bold; color: #e67e22;"></div>
+        </div>
+    </div>
+
+    <!-- 題目彈出視窗 -->
+    <div class="modal-overlay" id="quizModal">
+        <div class="modal">
+            <h3 id="modalCardType" style="margin-top:0;">📋 土地挑戰題</h3>
+            <p id="quizQuestion" style="font-size: 15px; line-height: 1.6;"></p>
+            <div class="options-container" id="optionsSpace"></div>
+            
+            <div class="explanation-box" id="explanationSpace">
+                <strong id="resultStatus" style="color:red;">❌ 回答錯誤！</strong><br>
+                <strong>正確答案：</strong> <span id="correctAnswerStr"></span><br><br>
+                <strong>💡 詳細解釋：</strong> <span id="explanationStr"></span>
+            </div>
+            
+            <button class="btn" id="closeModalBtn" style="display:none; width:100%; margin-top:15px; background-color:#2ecc71;" onclick="closeModal()">繼續遊戲</button>
+        </div>
+    </div>
+
+    <script>
+        // 1. 完整題目數據庫
+        const bafsQuestions = [
+            { id: 1, type: "綠色卡", q: "下列哪項是商界對香港經濟的貢獻？<br>(1) 銷售貨品與服務到海外以賺取外匯<br>(2) 為本地居民提供就業機會<br>(3) 為政府帶來稅收", options: ["A. 只有(1)及(2)", "B. 只有(1)及(3)", "C. 只有(2)及(3)", "D. (1)、(2)及(3)"], ans: "D", exp: "商界透過出口貿易賺取外匯(1),作為僱主提供大量工作崗位(2),並透過繳納利得稅等為政府提供收入(3),三者皆是主要的經濟貢獻" },
+            { id: 2, type: "紅色卡", q: "與採用扁平式架構及規模相若的商號比較，下列哪項有關採用高架式架構的商號的陳述是正確的？<br>(1) 中層管理人員較多。<br>(2) 它能較迅速回應市場轉變。<br>(3) 管理人員監督較少下屬。", options: ["A. 只有(1)及(2)", "B. 只有(1)及(3)", "C. 只有(2)及(3)", "D. (1)、(2)及(3)"], ans: "B", exp: "高架式架構層級較多,因此中層管理人員較多(1);其控制幅度較窄,意味著每位管理人員監督的下屬較少(3)。迅速回應市場轉變(2)通常是扁平式架構的優點" },
+            { id: 3, type: "綠色卡", q: "下列哪項是財務報表的用途？<br>(1) 用作評稅<br>(2) 用作分析商號的財務資訊<br>(3) 用作比較行業中不同商號的財務表現", options: ["A. 只有(1)及(2)", "B. 只有(1)及(3)", "C. 只有(2)及(3)", "D. (1)、(2)及(3)"], ans: "D", exp: "稅務局利用財務報表評定稅項(1);投資者和管理層利用其分析財務狀況(2);報表亦提供標準化數據以供與同行比較(3)" },
+            { id: 4, type: "黃色卡", q: "下列哪項是自僱人士在強制性公積金(強積金)制度下享有的權利？", options: ["A. 如他們的每月有關入息低於$7100，可以選擇退出強積金計劃。", "B. 他們可每年從強積金計劃提取部分累算權益。", "C. 他們可更改其強積金帳戶的投資組合。", "D. 他們可選擇每季作一次強積金供款。"], ans: "C", exp: "所有強積金計劃成員(包括自僱人士)都有權根據風險偏好更改投資組合。收入低於最低水平(A)僅指無需作強制性供款,但仍須參加計劃;提取權益(B)通常需年滿65歲或符合特定法定條件" },
+            { id: 5, type: "紅色卡", q: "下列哪位是同時關注商號盈利能力和變現能力的財務報表外部使用者？", options: ["A. 高層管理人員", "B. 顧客", "C. 供應商", "D. 政府"], ans: "C", exp: "供應商作為債權人,關注商號的盈利能力以確保長期業務關係,同時極度關注變現能力(流動性)以確保商號能準時支付貨欠。管理人員是內部使用者(A),政府主要關注稅收(D)" },
+            { id: 6, type: "紅色卡", q: "莊力剛畢業。他加入了一家廣告公司的創作團隊。他的上司只為他提供基本的工作指引，莊力可最終決定廣告計劃的細節。根據以上資料，莊力的上司採用 ______ 式的領導風格，莊力的工作滿足感因而較高 / 沮喪？", options: ["A. 民主……莊力的工作滿足感因而較高", "B. 民主……團隊成員之間因而合作不足", "C. 自由放任……莊力在工作上會變得被動", "D. 自由放任……莊力在面對挑戰時可能會感到沮喪"], ans: "D", exp: "上司僅給予基本指引並讓下屬自行決定細節,屬於自由放任式。這種風格下,缺乏經驗的下屬(剛畢業)在遇到困難時可能因缺乏支持而感到沮喪" },
+            { id: 7, type: "紅色卡", q: "下列哪項有關試算表的陳述是正確的？<br>(1) 它是在期末調整前編製的。<br>(2) 如試算表不平衡，淨利將會出錯。<br>(3) 如結餘轉下顯示在帳戶的借方，這帳戶的結餘會顯示在試算表的借方欄。", options: ["A. 只有(1)", "B. 只有(2)", "C. 只有(1)及(3)", "D. 只有(2)及(3)"], ans: "C", exp: "試算表通常在會計期末、調整帳目之前編製(1)。若帳戶結餘在借方(結餘轉下c/d 在貸方,則承上結餘b/d 在借方),則列於試算表借方(3)。淨利出錯(2)與試算表是否平衡無必然直接因果關係,因為有些錯誤(如原則性錯誤)不會導致不平衡" },
+            { id: 8, type: "黃色卡", q: "若要維持良好個人信貸紀錄，信用卡用戶應：<br>(1) 盡用其信用卡的信用限額<br>(2) 在使用信用卡前評估自己的還款能力<br>(3) 在繳款期限當日或以前清償信用卡欠款", options: ["A. 只有(1)", "B. 只有(2)", "C. 只有(2)及(3)", "D. (1)、(2)及(3)"], ans: "C", exp: "盡用限額(1)可能被視為財務壓力過大,不利於信用評分。評估能力(2)和準時還款(3)是維持良好紀錄的正確做法" },
+            { id: 9, type: "綠色卡", q: "下列哪項是全球一體化對香港經濟的好處？<br>(1) 促進國際市場的拓展<br>(2) 增加本地企業的利潤<br>(3) 全球採購令成本下降", options: ["A. 只有(1)", "B. 只有(1)及(3)", "C. 只有(2)及(3)", "D. (1)、(2)及(3)"], ans: "D", exp: "全球化讓企業接觸更多海外客戶(1),透過全球供應鏈降低成本(3),從而有助增加總利潤(2)" },
+            { id: 11, type: "綠色卡", q: "一家商號委派一批新聘請的員工到不同部門。這工作屬於下列哪項管理功能？", options: ["A. 計劃", "B. 組織", "C. 領導", "D. 控制"], ans: "B", exp: "組織功能涉及分配資源、建立職位及指派員工到合適的部門工作" },
+            { id: 13, type: "綠色卡", q: "下列哪項有關亞太區經濟合作組織的陳述是正確的？<br>(1) 它為發展中國家的經濟增長提供財政支援。<br>(2) 它的宗旨是令亞太地區國家繁榮昌盛。<br>(3) 成員可自行決定是否執行其所作的決定。", options: ["A. 只有(1)及(2)", "B. 只有(1)及(3)", "C. 只有(2)及(3)", "D. (1)、(2)及(3)"], ans: "C", exp: "APEC 是一個非約束性的論壇,強調自願原則(3)及推動區域繁榮(2)。提供財政支援(1)通常是世界銀行或IMF的功能" },
+            { id: 14, type: "黃色卡", q: "下列哪項有關私人分期貸款的陳述是正確的？<br>(1) 有固定還款期。<br>(2) 貸款期內的利率是浮動的。<br>(3) 利率通常較銀行透支低。", options: ["A. 只有(1)", "B. 只有(2)", "C. 只有(1)及(3)", "D. (1)、(2)及(3)"], ans: "C", exp: "分期貸款合約通常列明固定的還款年期(1),且其利率一般低於無抵押的銀行透支(3)。私人貸款利率多為固定,而非隨市場頻繁浮動" },
+            { id: 16, type: "紅色卡", q: "新申請人在香港交易所主板（平台A）與GEM（平台B）上市基本要求不同，下列哪項正確？", options: ["A. 在平台 A 上市的公司每年均會向股東派發股息。", "B. 在平台 B 上市的公司數目較在平台 A 的多。", "C. 平台A的對象是跨國公司，而平台B的對象則是中小型企業。", "D. 欠缺經驗的投資者應只投資在平台 B 上市的股票。"], ans: "C", exp: "平台A為主板(Main Board),適合大型企業或跨國公司;平台B為GEM,適合規模較小、歷史較短的增長型企業" },
+            { id: 17, type: "綠色卡", q: "由於「分工」，所以工廠的生產效率得以提升。原因為何？", options: ["A. 省去員工轉換不同工作的時間", "B. 提高不同工作的相互倚賴程度", "C. 有助減少生產程序的延誤", "D. 提高員工士氣"], ans: "A", exp: "分工讓員工專注單一工序,無需在不同工具或工作間切換,從而節省時間" },
+            { id: 19, type: "綠色卡", q: "一家外資快餐連鎖店計劃在香港成立分店。下列哪項是影響該連鎖店的經濟因素？<br>(1) 香港的物價水平<br>(2) 香港的勞動人口結構<br>(3) 港珠澳大橋的營運", options: ["A. 只有(1)", "B. 只有(1)及(2)", "C. 只有(1)及(3)", "D. 只有(2)及(3)"], ans: "A", exp: "物價水平(1)直接反映通脹和成本,是經濟因素。勞動人口結構(2)是社會/人口因素;大橋營運(3)多被視為技術或基礎設施因素" },
+            { id: 20, type: "紅色卡", q: "如某年最後一個交易日的恆生指數較該年首個交易日的為低，這表示該年度：<br>(1) 恆生指數成分股的數目減少<br>(2) 恆生指數成分股的整體價格下跌<br>(3) 香港股票市場新上市公司所籌集的資金總額減少", options: ["A. 只有(1)", "B. 只有(2)", "C. 只有(1)及(3)", "D. 只有(2)及(3)"], ans: "B", exp: "恆生指數主要量度成分股的市值變化,指數下跌反映整體股價下滑(2)" },
+            { id: 24, type: "紅色卡", q: "下列哪項是公司財務部門的工作？<br>(1) 籌措資金以安裝數據庫伺服器<br>(2) 向保險公司索償<br>(3) 估計購置新機器所帶來的現金流", options: ["A. 只有(1)", "B. 只有(2)", "C. 只有(1)及(3)", "D. (1)、(2)及(3)"], ans: "C", exp: "籌集資金(1)和評估投資項目現金流(3)是財務管理的核心。索償(2)通常由風險管理部門負責" },
+            { id: 25, type: "黃色卡", q: "下列哪項兩年期投資計劃的實際回報率最高？", options: ["A. 8%(每年複息計算一次)", "B. 8%(每半年複息計算一次)", "C. 9%(每半年複息計算一次)", "D. 9%(每季複息計算一次)"], ans: "D", exp: "利率越高且複息計算頻率越密,實際回報率越高。9%且按季計算(D)是四者中最高的" }
+        ];
+
+        // 2. 地圖格子定義 (共20格環狀)
+        const mapCells = [
+            { name: "起點 (GO)", type: "special" },
+            { name: "中環 (綠色地產)", type: "green", qIdx: 0 },
+            { name: "尖沙咀 (黃色地產)", type: "yellow", qIdx: 3 },
+            { name: "旺角 (紅色地產)", type: "red", qIdx: 1 },
+            { name: "機會卡 (強積金)", type: "yellow", qIdx: 7 },
+            { name: "新界監獄", type: "special" },
+            { name: "銅鑼灣 (綠色地產)", type: "green", qIdx: 2 },
+            { name: "灣仔 (紅色地產)", type: "red", qIdx: 4 },
+            { name: "沙田 (黃色地產)", type: "yellow", qIdx: 11 },
+            { name: "命運卡 (金融市場)", type: "red", qIdx: 12 },
+            { name: "免費停車場", type: "special" },
+            { name: "觀塘 (綠色地產)", type: "green", qIdx: 8 },
+            { name: "荃灣 (黃色地產)", type: "yellow", qIdx: 17 },
+            { name: "九龍塘 (紅色地產)", type: "red", qIdx: 5 },
+            { name: "機會卡 (公司會計)", type: "red", qIdx: 6 },
+            { name: "直達監獄", type: "special" },
+            { name: "深水埗 (綠色地產)", type: "green", qIdx: 9 },
+            { name: "元朗 (綠色地產)", type: "green", qIdx: 10 },
+            { name: "屯門 (綠色地產)", type: "green", qIdx: 13 },
+            { name: "命運卡 (理財危機)", type: "yellow", qIdx: 14 }
+        ];
+
+        let playerPos = 0;
+        let playerMoney = 15000;
+        let currentQuiz = null;
+
+        // 3. 初始化棋盤 HTML 生成
+        function initBoard() {
+            const boardEl = document.getElementById('board');
+            mapCells.forEach((cell, index) => {
+                const cellEl = document.createElement('div');
+                cellEl.className = `cell cell-${index}`;
+                
+                let headerClass = '';
+                if(cell.type === 'green') headerClass = 'bg-green';
+                if(cell.type === 'yellow') headerClass = 'bg-yellow';
+                if(cell.type === 'red') headerClass = 'bg-red';
+                
+                cellEl.innerHTML = `
+                    <div class="cell-header ${headerClass}"></div>
+                    <div>${cell.name}</div>
+                    <div style="font-size:9px; color:#7f8c8d;">${cell.type==='special'?'':'挑戰MC'}</div>
+                `;
+                boardEl.appendChild(cellEl);
+            });
+            moveTokenVisual(0);
+        }
+
+        // 4. 擲骰子
+        function rollDice() {
+            document.getElementById('rollBtn').disabled = true;
+            const dice = Math.floor(Math.random() * 6) + 1;
+            document.getElementById('diceResult').innerText = `🎲 點數：${dice} 點！`;
+            
+            // 計算新位置
+            playerPos = (playerPos + dice) % mapCells.length;
+            
+            setTimeout(() => {
+                moveTokenVisual(playerPos);
+                document.getElementById('currentLocName').innerText = mapCells[playerPos].name;
+                
+                // 觸發事件
+                triggerCellEvent(playerPos);
+            }, 600);
+        }
+
+        // 移動棋子視覺效果
+        function moveTokenVisual(pos) {
+            const targetCell = document.querySelector(`.cell-${pos}`);
+            const token = document.getElementById('playerToken');
+            targetCell.appendChild(token);
+        }
+
+        // 5. 觸發格子事件
+        function triggerCellEvent(pos) {
+            const cell = mapCells[pos];
+            
+            if (cell.type === 'special') {
+                if (cell.name === "直達監獄") {
+                    alert("🚨 慘了！你直接被抓進監獄！");
+                    playerPos = 5; // 監獄位置
+                    moveTokenVisual(5);
+                    document.getElementById('currentLocName').innerText = mapCells[5].name;
+                } else {
+                    alert(`停留到【${cell.name}】，安全過關！`);
+                }
+                document.getElementById('rollBtn').disabled = false;
+                return;
+            }
+
+            // 獲取嵌入的題目
+            currentQuiz = bafsQuestions[cell.qIdx];
+            showQuizModal(currentQuiz);
+        }
+
+        // 6. 顯示題目彈出視窗
+        function showQuizModal(quiz) {
+            document.getElementById('modalCardType').innerText = `📋 【${quiz.type}】停留 ${mapCells[playerPos].name} 的答題考驗`;
+            document.getElementById('quizQuestion').innerHTML = quiz.q;
+            
+            const optionsSpace = document.getElementById('optionsSpace');
+            optionsSpace.innerHTML = '';
+            document.getElementById('explanationSpace').style.display = 'none';
+            document.getElementById('closeModalBtn').style.display = 'none';
+
+            // 字母對應
+            const letters = ['A', 'B', 'C', 'D'];
+            quiz.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.innerText = opt;
+                btn.onclick = () => checkAnswer(letters[idx]);
+                optionsSpace.appendChild(btn);
+            });
+
+            document.getElementById('quizModal').style.display = 'flex';
+        }
+
+        // 7. 檢查答案
+        function checkAnswer(userAns) {
+            // 禁用所有選項按鈕
+            const buttons = document.querySelectorAll('.option-btn');
+            buttons.forEach(btn => btn.disabled = true);
+
+            const isCorrect = (userAns === currentQuiz.ans);
+            const statusEl = document.getElementById('resultStatus');
+            
+            if (isCorrect) {
+                statusEl.innerText = "🎉 回答正確！獲得資金獎勵 $2,000！";
+                statusEl.style.color = "green";
+                playerMoney += 2000;
+                document.getElementById('playerMoney').innerText = playerMoney;
+            } else {
+                statusEl.innerText = "❌ 回答錯誤！罰款倒扣 $1,000！";
+                statusEl.style.color = "red";
+                playerMoney -= 1000;
+                document.getElementById('playerMoney').innerText = playerMoney;
+            }
+
+            // 顯示解釋
+            document.getElementById('correctAnswerStr').innerText = currentQuiz.ans;
+            document.getElementById('explanationStr').innerText = currentQuiz.exp;
+            document.getElementById('explanationSpace').style.display = 'block';
+            
+            // 顯示關閉按鈕
+            document.getElementById('closeModalBtn').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('quizModal').style.display = 'none';
+            document.getElementById('rollBtn').disabled = false;
+        }
+
+        // 啟動遊戲
+        window.onload = initBoard;
+    </script>
+</body>
+</html>
